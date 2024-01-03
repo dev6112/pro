@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCA Image Compression</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 20px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        input[type="file"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            background-color: #000000;
+            color: #00FFFF;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        img {
+            max-width: 100%;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+
+        a {
+            color: #4caf50;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>PCA Image Compression</h1>
+    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+        <label for="image">Choose Image:</label>
+        <input type="file" name="image" accept=".jpg, .jpeg, .png" required>
+        <br>
+        <label for="components">Number of Components:</label>
+        <input type="number" name="components" value="50" min="1" required>
+        <br>
+        <button type="submit">Compress Image</button>
+    </form>
+
+    {% if result %}
+        <h2>Compressed Image</h2>
+        <p>Size: {{ compressed_img_size }} KB</p>
+        <img src="{{ url_for('download', filename=result) }}" alt="Compressed Image">
+        <br>
+        <a href="{{ url_for('download', filename=result) }}" download>Download Compressed Image</a>
+    {% endif %}
+
+    {% if restored_result %}
+        <h2>Restored Image</h2>
+        <p>Size: {{ restoration_img_size }} KB</p>
+        <img src="{{ url_for('download_restored') }}" alt="Restored Image">
+        <br>
+        <a href="{{ url_for('download_restored') }}" download>Download Restored Image</a>
+    {% endif %}
+
+    <p>Reconstruction Error: {{ reconstruction_error|float|round(2) }}%</p>
+    <p>Reconstructed Percentage: {{ reconstructed_percentage|float|round(2) }}%</p>
+</body>
+</html>
