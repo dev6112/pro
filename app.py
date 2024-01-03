@@ -1,14 +1,15 @@
-import streamlit as st
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 import os
 import numpy as np
 import PIL.Image
 from sklearn.decomposition import PCA
+from werkzeug.utils import secure_filename
 import joblib
 
-# Set up Streamlit app
-st.title('PCA Image Compressor')
+app = Flask(__name__, template_folder='templates')
+app.secret_key = 'supersecretkey'  # Change this to a more secure key
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
-# Create a class for PCA Image Compressor
 class PCAImageCompressor:
     def __init__(self):
         self.image_path = ''
@@ -27,8 +28,9 @@ class PCAImageCompressor:
     def calculate_reconstruction_error(self, original, reconstructed):
         return np.sqrt(((original - reconstructed) ** 2).mean())
 
-    def compress_image(self, image_content, num_components):
-        img = PIL.Image.open(image_content).convert("L")
+    def compress_image(self, image_path, num_components):
+        img = PIL.Image.open(image_path)
+        img = img.convert("L")
         img_array = np.array(img, dtype=np.float32)
 
         if self.pca_model is None:
@@ -41,15 +43,15 @@ class PCAImageCompressor:
 
         compressed_img = PIL.Image.fromarray(reconstructed_img_array)
 
-        filename, extension = os.path.splitext('uploaded_image.jpg')
+        filename, extension = os.path.splitext(os.path.basename(image_path))
         result_filename = f"{filename}_compressed_pca_{num_components}.jpg"
         restored_filename = f"{filename}_restored_pca_{num_components}.jpg"
-        result_path = os.path.join('uploads', result_filename.replace(" ", "_"))
-        restored_path = os.path.join('uploads', restored_filename.replace(" ", "_"))
+        result_path = os.path.join(app.config['UPLOAD_FOLDER'], result_filename)
+        restored_path = os.path.join(app.config['UPLOAD_FOLDER'], restored_filename)
 
         compressed_img.save(result_path)
 
-        original_size = len(image_content.getvalue())
+        original_size = os.path.getsize(image_path)
         compressed_size = os.path.getsize(result_path)
 
         self.reconstruction_error = (compressed_size / original_size) * 100
@@ -72,30 +74,52 @@ class PCAImageCompressor:
 
 obj = PCAImageCompressor()
 
-# Streamlit app layout
-st.sidebar.header('Upload Image')
-uploaded_file = st.sidebar.file_uploader("Choose an image...", type="jpg")
+@app.route('/')
+def index():
+    return render_template('index.html', result='', restored_result='', compressed_img_size='', restoration_img_size='', reconstruction_error='', reconstructed_percentage='')
 
-if uploaded_file is not None:
-    st.image(uploaded_file, caption='Uploaded Image.', use_column_width=True)
+@app.route('/upload', methods=['POST'])
+def upload():
+    if 'image' not in request.files:
+        flash('No image file provided.')
+        return redirect(url_for('index'))
 
-    num_components = st.sidebar.slider('Select Number of Components:', 1, 100, 10)
+    image = request.files['image']
+    if image.filename == '':
+        flash('No selected image file.')
+        return redirect(url_for('index'))
 
-    if st.sidebar.button('Compress Image'):
-        try:
-            obj.reset()
+    num_components = int(request.form['components'])
+    obj.reset()
 
-            result_path, restored_path, compressed_img_size = obj.compress_image(uploaded_file, num_components)
+    try:
+        filename = secure_filename(image.filename)
+        obj.image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        image.save(obj.image_path)
 
-            st.image(result_path, caption='Compressed Image.', use_column_width=True)
-            st.image(restored_path, caption='Restored Image.', use_column_width=True)
-            
-            # Download links
-            st.sidebar.markdown(f"**Download Results:**")
-            st.sidebar.markdown(f"- [Compressed Image]({result_path})")
-            st.sidebar.markdown(f"- [Restored Image]({restored_path})")
-            
-        except Exception as e:
-            st.error(f'Error: {e}')
-else:
-    st.warning('Please upload an image.')
+        result_path, restored_path, compressed_img_size = obj.compress_image(obj.image_path, num_components)
+
+        return render_template('index.html', result=result_path, restored_result=restored_path,
+                               compressed_img_size=compressed_img_size / 1024,
+                               restoration_img_size=os.path.getsize(restored_path) / 1024,
+                               reconstruction_error=obj.reconstruction_error,
+                               reconstructed_percentage=obj.reconstructed_percentage)
+
+    except Exception as e:
+        flash(f'Error: {e}')
+        return redirect(url_for('index'))
+
+@app.route('/download/<filename>')
+def download(filename):
+    return send_file(filename, as_attachment=True)
+
+@app.route('/download_restored')
+def download_restored():
+    restored_path = os.path.join(app.config['UPLOAD_FOLDER'], obj.restored_filename)
+    return send_file(restored_path, as_attachment=True)
+
+#if __name__ == "__main__":
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
+
+    #app.run(debug=True)
