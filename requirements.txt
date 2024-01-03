@@ -3,4 +3,4 @@ Gunicorn
 numpy==1.26.3
 cython==0.29.24
 Pillow==8.3.2
-PIL==1.7.0
+Pillow>=1.7.0,<3.0.0
