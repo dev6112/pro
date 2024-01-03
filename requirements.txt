@@ -1,5 +1,5 @@
 Flask
 Gunicorn
-numpy==numpy==1.22.0
+numpy==1.26.3
 cython==0.29.24
 
